@@ -9,9 +9,12 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
+    // Outside Objects
     [SerializeField]
     private GameObject _laserPrefab;
+    private SpawnManager _spawnManager;
 
+    // Combat
     [SerializeField]
     private float _health = 10f;
 
@@ -22,6 +25,7 @@ public class Player : MonoBehaviour
     private float _fireRate = 0.1f; // only allow the p[layer to fire once every 0.2 seconds
     private float _cooldown = 0f; // seconds left until player can fire again
 
+    // Movement Physics
     [SerializeField]
     private float _mass = 2000f; // mass of the player in kg
 
@@ -31,18 +35,19 @@ public class Player : MonoBehaviour
     private float _speedHorizontal = 0f; // speed at which the player moves horizontally
     private float _speedVertical = 0f; // speed at which the player is currently moving vertically
 
-    [SerializeField]
-    private float _horizontalAccelModifier = 2f; // modifier to allow user to accelerate faster or than the normal rate on the horizontal axis
+    //[SerializeField]
+    //private float _horizontalAccelModifier = 2f; // modifier to allow user to accelerate faster or than the normal rate on the horizontal axis
 
-    [SerializeField]
-    private float _verticalAccelModifier = 2f; // modifier to allow the user to accelerate faster than the normal rate in the vertical axis
+    //[SerializeField]
+    //private float _verticalAccelModifier = 2f; // modifier to allow the user to accelerate faster than the normal rate in the vertical axis
 
-    [SerializeField]
-    private float _horizontalDecelModifier = 5f; // modifier to allow the user to decelerate faster in the horizontal axis
+    //[SerializeField]
+    //private float _horizontalDecelModifier = 5f; // modifier to allow the user to decelerate faster in the horizontal axis
 
-    [SerializeField]
-    private float _verticalDecelModifier = 5f; // modifier to allow the user to decelerate faster in the horizontal axis
+    //[SerializeField]
+    //private float _verticalDecelModifier = 5f; // modifier to allow the user to decelerate faster in the horizontal axis
 
+    // Boundaries
     private float _leftBound = -11f;
     private float _rightBound = 11f;
 
@@ -55,6 +60,11 @@ public class Player : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        _spawnManager = GameObject.FindGameObjectWithTag("SpawnManager").GetComponent<SpawnManager>();
+        if (_spawnManager == null)
+        {
+            Debug.LogError("Spawn Manager is NULL in Plaer.Start() !!!");
+        }
         //take the current position = new position (0, 0, 0)
         transform.position = new Vector3(0, 0, 0);
     }
@@ -266,6 +276,7 @@ public class Player : MonoBehaviour
         Debug.Log("Player is taking damage" + incomingDamage);
         if (_health <= 0)
         {
+            _spawnManager.OnPlayerDeath();
             Destroy(gameObject);
         }
     }
