@@ -97,83 +97,113 @@ public class Player : MonoBehaviour
 
         if (!_wrapPlayer)
         {
-            horizontalInput = this.enforceHorizontalBound(horizontalInput, transform.position.x);
-            verticalInput = this.enforceVerticalBound(verticalInput, transform.position.y);
+            _speedHorizontal = this.CalculateXSpeedNoWrap(horizontalInput, transform.position.x, _speedHorizontal, _thrust, _mass);
+            _speedVertical = this.CalculateYSpeedNoWrap(verticalInput, _speedVertical);
+
+            float xCoor = this.CalculateXPositionNoWrap(_speedHorizontal, transform.position.x, _leftBound, _rightBound);
+            float yCoor = this.CalculateYPositionNoWrap(_speedVertical, transform.position.y, _bottomBound, _topBound);
+            transform.position = new Vector3(xCoor, yCoor, 0);
         }
         else 
         {
-            float playerXPosition = this.enforceHorizontalBoundWrap(_speedHorizontal, transform.position.x, transform.localScale.x, _leftBound, _rightBound);
-            float playerYPosition = this.enforceVerticalBoundWrap(_speedVertical, transform.position.y, transform.localScale.y, _topBound, _bottomBound);
+            // this.CalculateSpeedWrap(horizontalInput, verticalInput);
+            _speedHorizontal = this.CalculateXSpeedWrap(horizontalInput, _speedHorizontal);
+            _speedVertical = this.CalculateYSpeedNoWrap(verticalInput, _speedVertical);
 
-            transform.position = new Vector3(playerXPosition, playerYPosition, transform.position.z);
+            float xCoor = this.CalculateXPositionWrap(_speedHorizontal, transform.position.x, transform.localScale.x, _leftBound, _rightBound);
+            float yCoor = this.CalculateYPositionNoWrap(_speedVertical, transform.position.y, _bottomBound, _topBound);
+
+            transform.position = new Vector3(xCoor, yCoor, 0);
         }
 
-        _speedHorizontal = _speedHorizontal + (horizontalInput * _thrust) / _mass; // Acceleration = Force / Mass
-        _speedVertical = _speedVertical + (verticalInput * _thrust) / _mass; // Acceleration = force / Mass
-        transform.Translate(new Vector3(Time.deltaTime * _speedHorizontal, Time.deltaTime * _speedVertical, 0));
+    }
+    #region Position Calculations
+    private float CalculateXPositionWrap(float horizontalSpeed, float xCoor, float xPlayerScale, float leftBound, float rightBound)
+    {
+        // next we calculate the new xPosition
+        xCoor = xCoor + horizontalSpeed * Time.deltaTime;
+
+        // first we must apply the wrap if appropriate
+        return this.enforceHorizontalBoundWrap(xCoor, xPlayerScale, leftBound, rightBound);
     }
 
-    // Acceleration Modifiers are only relevant if we use arcade physics instead of newtonian physics
-    ///// <summary>
-    ///// Applies horizontalAccelModifier to the users keyboard input to let them accelerate more quickly in the x direction.
-    ///// Also stop movement in the x direction immediately if the user releases a horizontal movement key
-    ///// </summary>
-    ///// <param name="input"></param>
-    ///// <returns></returns>
-    //public float ApplyHorizontalAccelModifier(float input)
-    //{
-    //    Debug.Log(Input.GetKey(KeyCode.D));
-    //    if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D) ||
-    //        Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A))
-    //    {
-    //        return Mathf.Clamp(input * _horizontalAccelModifier, -1, 1);
-    //    }
-    //    else 
-    //    {
-    //        return Math.Abs(input / _horizontalDecelModifier) > 0.2 ? input / _horizontalDecelModifier : 0;
-    //    }
-    //}
-
-    ///// <summary>
-    ///// Applies horizontalAccelModifier to the users keyboard input to let them accelerate more or less quickly in the Y direction.
-    ///// Also stop the user immediately when they release the key
-    ///// </summary>
-    ///// <param name="input"></param>
-    ///// <returns></returns>
-    //public float ApplyVerticalAccelModifier(float input)
-    //{
-    //    if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W) ||
-    //        Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S))
-    //    {
-    //        return Mathf.Clamp(input * _verticalAccelModifier, -1, 1);
-    //    }
-    //    else
-    //    {
-    //        return Math.Abs(input / _verticalDecelModifier) > 0.2 ? input / _verticalDecelModifier : 0;
-    //    }
-    //}
-
-    #region PlayerBoundsWrap
-    private float enforceHorizontalBoundWrap(float horizontalInput, float xCoor, float xPlayerScale, float leftBound, float rightBound)
+    private float CalculateYPositionNoWrap(float verticalSpeed, float yCoor, float bottomBound, float topBound)
     {
-        if (this.leftBoundViolatedWrap(horizontalInput, xCoor, xPlayerScale, leftBound))
+        if (this.bottomBoundIsViolated(yCoor)) { yCoor = bottomBound; }
+        else if (this.topBoundIsViolated(yCoor)) { yCoor = topBound; }
+
+        verticalSpeed = this.enforceVerticalBound(verticalSpeed, yCoor);
+        return yCoor + verticalSpeed * Time.deltaTime;
+    }
+
+    private float CalculateXPositionNoWrap(float speedHorizontal, float xCoor, float leftBound, float rightBound)
+    {
+        if (this.leftBoundIsViolated(xCoor)) { xCoor = leftBound; }
+        else if (this.rightBoundIsViolated(xCoor)) { xCoor = rightBound; }
+
+        speedHorizontal = this.enforceHorizontalBound(speedHorizontal, xCoor);
+        return xCoor + speedHorizontal * Time.deltaTime;
+    }
+    #endregion
+
+    #region Speed Calculations
+    /// <summary>
+    /// Given the current horiztonalInput and verticalInput from the end user, calculate the speed of the Player
+    /// in the vertical and horizontal direction assuming we have the "wrap" setting toggled off
+    /// </summary>
+    /// <param name="horizontalInput"></param>
+    private float CalculateXSpeedNoWrap(float horizontalInput, float xCoor, float speedHorizontal, float thrust, float mass)
+    {
+        horizontalInput = this.enforceHorizontalBound(horizontalInput, xCoor);
+        speedHorizontal = this.enforceHorizontalBound(speedHorizontal, xCoor); // set to 0 if  at boundary
+        return speedHorizontal + (horizontalInput * thrust) / mass; // Acceleration = Force / Mass
+    }
+
+    private float CalculateYSpeedNoWrap(float verticalInput, float speedVertical)
+    {
+        verticalInput = this.enforceVerticalBound(verticalInput, this.transform.position.y);
+        speedVertical = this.enforceVerticalBound(speedVertical, transform.position.y);
+
+        return speedVertical + (verticalInput * _thrust) / _mass;
+    }
+
+    private float CalculateXSpeedWrap(float horizontalInput, float speedHorizontal)
+    {
+        return speedHorizontal + (_thrust * horizontalInput) / _mass;
+    }
+    #endregion
+
+    #region Enforce Bounds With Wrapping
+    /// <summary>
+    /// If horizontalInput, xCoor, and the leftBound/rightBound given indicate that the player is about to step out of the horizontal bounds,
+    /// calculate the new XPosition of the player to wrap them to the other side of the scrteen
+    /// </summary>
+    /// <param name="horizontalInput"></param>
+    /// <param name="xCoor"></param>
+    /// <param name="xPlayerScale"></param>
+    /// <param name="leftBound"></param>
+    /// <param name="rightBound"></param>
+    /// <returns></returns>
+    private float enforceHorizontalBoundWrap(float xCoor, float xPlayerScale, float leftBound, float rightBound)
+    {
+        if (this.leftBoundViolatedWrap(xCoor, xPlayerScale, leftBound))
         {
             return rightBound + xPlayerScale * 0.75f;
         }
-        else if (this.rightBoundViolatedWrap(horizontalInput, xCoor, xPlayerScale, rightBound))
+        else if (this.rightBoundViolatedWrap(xCoor, xPlayerScale, rightBound))
         {
             return leftBound - xPlayerScale * 0.75f;
         }
         return xCoor;
     }
 
-    private float enforceVerticalBoundWrap(float verticalInput, float yCoor, float yPlayerScale, float topBound, float bottomBound)
+    private float enforceVerticalBoundWrap(float yCoor, float yPlayerScale, float topBound, float bottomBound)
     {
-        if (verticalInput > 0 && yCoor >= (topBound + yPlayerScale * 0.75f))
+        if (yCoor >= (topBound + yPlayerScale * 0.75f))
         {
             yCoor = bottomBound - yPlayerScale * 0.75f;
         }
-        else if (verticalInput < 0 && yCoor <= (bottomBound - yPlayerScale * 0.75f))
+        else if (yCoor <= (bottomBound - yPlayerScale * 0.75f))
         {
             yCoor = topBound + yPlayerScale * 0.75f;
         }
@@ -187,9 +217,9 @@ public class Player : MonoBehaviour
     /// <param name="playerTransform"></param>
     /// <param name="leftBound"></param>
     /// <returns></returns>
-    private bool leftBoundViolatedWrap(float horizontalInput, float xCoor, float xPlayerScale, float leftBound)
+    private bool leftBoundViolatedWrap(float xCoor, float xPlayerScale, float leftBound)
     {
-        return (horizontalInput < 0 && (xCoor <= (leftBound - xPlayerScale * 0.75f)));
+        return ((xCoor <= (leftBound - xPlayerScale * 0.75f)));
     }
 
     /// <summary>
@@ -199,15 +229,15 @@ public class Player : MonoBehaviour
     /// <param name="playerTransform"></param>
     /// <param name="rightBound"></param>
     /// <returns></returns>
-    private bool rightBoundViolatedWrap(float horizontalInput, float xCoor, float xPlayerScale, float rightBound)
+    private bool rightBoundViolatedWrap(float xCoor, float xPlayerScale, float rightBound)
     {
-        return (horizontalInput > 0 && (xCoor >= (rightBound + xPlayerScale * 0.75f)));
+        return ((xCoor >= (rightBound + xPlayerScale * 0.75f)));
     }
 
 
     #endregion
 
-    #region PlayerBoundsNoWrap
+    #region Enforce Bounds With No Wrapping
 
     /// <summary>
     /// If player is about to break the left or right bounds, set horizontalInput to zero and return,
@@ -256,7 +286,7 @@ public class Player : MonoBehaviour
     private bool bottomBoundIsViolated(float yCoor) { return yCoor <= _bottomBound; }
     #endregion
 
-    private void OnTriggerEnter(Collider other)
+    private void OnTriggerEnter2D(Collider2D other)
     {
         Debug.Log("Player collided with " + other.tag + " applying " + _collisionDamage + " to " + other.tag);
 
